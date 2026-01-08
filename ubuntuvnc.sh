@@ -5,6 +5,7 @@ set -e
 CYAN="\033[36m"
 GREEN="\033[32m"
 YELLOW="\033[33m"
+RED="\033[31m"
 RESET="\033[0m"
 
 # Banner
@@ -20,28 +21,26 @@ echo
 
 # Detect Google IDX
 IS_IDX=false
-if [[ -n "$IDX_WORKSPACE_ROOT" ]] || [[ "$HOSTNAME" == *"idx"* ]]; then
+if [[ -n "${IDX_WORKSPACE_ROOT:-}" ]]; then
   IS_IDX=true
 fi
 
-# Check Docker daemon
+# Check Docker daemon (REAL check)
 DOCKER_OK=false
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   DOCKER_OK=true
 fi
 
 # ----------------------------
-# Docker path (normal machines)
+# Docker backend
 # ----------------------------
 if $DOCKER_OK; then
-  echo "[+] Docker detected – using Docker backend"
+  echo "[+] Docker daemon detected – using Docker backend"
 
   docker rm -f ubuntu-desktop >/dev/null 2>&1 || true
 
-  echo "[+] Pulling image..."
   docker pull akarita/docker-ubuntu-desktop
 
-  echo "[+] Starting Ubuntu Desktop (VNC on localhost)..."
   docker run -d \
     --name ubuntu-desktop \
     --platform=linux/amd64 \
@@ -50,16 +49,16 @@ if $DOCKER_OK; then
     akarita/docker-ubuntu-desktop
 
   echo
-  echo -e "${GREEN}✅ Ubuntu Desktop is running (Docker)!${RESET}"
-  echo "➡ Open: http://127.0.0.1:6080"
+  echo -e "${GREEN}✅ Ubuntu Desktop running via Docker${RESET}"
+  echo "➡ http://127.0.0.1:6080"
   exit 0
 fi
 
 # ----------------------------
-# IDX fallback (native VNC)
+# IDX fallback
 # ----------------------------
 if $IS_IDX; then
-  echo -e "${YELLOW}[!] Google IDX detected – Docker not supported${RESET}"
+  echo -e "${YELLOW}[!] Google IDX detected – Docker daemon unavailable${RESET}"
   echo "[+] Installing native XFCE + TigerVNC..."
 
   sudo apt update
@@ -76,20 +75,19 @@ EOF
 
   chmod +x ~/.vnc/xstartup
 
-  echo "[+] Starting VNC server on :1"
   vncserver -kill :1 >/dev/null 2>&1 || true
   vncserver :1 -localhost
 
   echo
-  echo -e "${GREEN}✅ Ubuntu XFCE desktop running on IDX!${RESET}"
-  echo "➡ VNC display: :1"
-  echo "➡ Use IDX port forwarding or built-in VNC viewer"
+  echo -e "${GREEN}✅ Ubuntu XFCE desktop running on IDX${RESET}"
+  echo "➡ VNC display :1"
+  echo "➡ Use IDX port forwarding / VNC viewer"
   exit 0
 fi
 
 # ----------------------------
 # No supported backend
 # ----------------------------
-echo "❌ Docker not available and not running on IDX."
-echo "This installer requires Docker or Google IDX."
+echo -e "${RED}❌ Docker daemon not available${RESET}"
+echo "This environment does not support Docker or IDX fallback."
 exit 1
